@@ -1,4 +1,4 @@
-#  [캡스톤프로젝트 Solike] - Game Server Architecture
+#  [캡스톤프로젝트 Solike] - Game Backend Server Architecture
 
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)
@@ -7,13 +7,13 @@
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
 ![Photon](https://img.shields.io/badge/Network-Photon_Fusion-00B2FF)
 
->**로그라이크 멀티플레이어 게임을 위한 서버 프로젝트** 
+>**로그라이크 멀티플레이어 게임 백엔드 서버** 
 
 <br>
 
 ##  System Architecture
 
-본 프로젝트는 게임의 반응성(Latency)과 데이터 무결성(Integrity)이라는 두 가지 목표를 달성하기 위해 **이원화된 네트워크 구조**를 채택했습니다.
+본 프로젝트는 게임의 반응성(Latency)과 데이터 무결성(Integrity)이라는 두 가지 목표를 달성하기 위해 **이원화된 네트워크 구조**를 채택.
 
 
 ### 🔹 Hybrid Network Topology
