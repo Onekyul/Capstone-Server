@@ -4,15 +4,16 @@ namespace GameServer
 =======
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-using GameServer.Data; // AppDbContextï¿½ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Alt+Enterï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
+using GameServer.Data; // AppDbContext°¡ ÀÖ´Â ³×ÀÓ½ºÆäÀÌ½º (¿¡·¯³ª¸é Alt+Enter·Î ¼öÁ¤)
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. MySQL ï¿½ï¿½ï¿½
+// 1. MySQL µî·Ï
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
-// 2. Redis ï¿½ï¿½ï¿½ 
+
+// 2. Redis µî·Ï 
 var redisString = builder.Configuration.GetConnectionString("RedisConnection")!;
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -24,7 +25,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 3. ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ DB ï¿½ï¿½ï¿½ï¿½ ï¿½×½ï¿½Æ® 
+// 3. ¼­¹ö ½ÃÀÛ ½Ã DB ¿¬°á Å×½ºÆ® 
 using (var scope = app.Services.CreateScope())
 >>>>>>> Stashed changes
 {
