@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-using GameServer; 
+using GameServer.Data; 
 
 var builder = WebApplication.CreateBuilder(args);
 
