@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-using GameServer; // AppDbContext°¡ ÀÖ´Â ³×ÀÓ½ºÆäÀÌ½º (¿¡·¯³ª¸é Alt+Enter·Î ¼öÁ¤)
+using GameServer; 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. MySQL µî·Ï
+// 1. MySQL ë“±ë¡
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-// 2. Redis µî·Ï 
+// 2. Redis ë“±ë¡ 
 var redisString = builder.Configuration.GetConnectionString("RedisConnection");
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -21,7 +21,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 3. ¼­¹ö ½ÃÀÛ ½Ã DB ¿¬°á Å×½ºÆ® 
+// 3. ì„œë²„ ì‹œì‘ ì‹œ DB ì—°ê²° í…ŒìŠ¤íŠ¸ 
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -29,34 +29,29 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-        // MySQL ¿¬°á È®ÀÎ
+        // 1. MySQL ì—°ê²° ì •ë°€ ê²€ì‚¬
         var dbContext = services.GetRequiredService<AppDbContext>();
-        // µ¥ÀÌÅÍº£ÀÌ½º°¡ ¾øÀ¸¸é »ı¼º (Ã³À½ ½ÇÇà ½Ã À¯¿ë)
-        // dbContext.Database.EnsureCreated(); 
 
-        if (dbContext.Database.CanConnect())
-        {
-            logger.LogInformation(" [MySQL] DB ¿¬°á ¼º°ø! (Port: 3306)");
-        }
-        else
-        {
-            logger.LogError(" [MySQL] ¿¬°á ½ÇÆĞ...");
-        }
+       
+        dbContext.Database.OpenConnection();
+        dbContext.Database.CloseConnection();
 
-        // Redis ¿¬°á È®ÀÎ
+        logger.LogInformation(" [MySQL] DB ì—°ê²° ì„±ê³µ! (Port: 3306)");
+
+        // 2. Redis ì—°ê²° ê²€ì‚¬
         var redis = services.GetRequiredService<IConnectionMultiplexer>();
         if (redis.IsConnected)
-        {
-            logger.LogInformation(" [Redis] Ä³½Ã ¼­¹ö ¿¬°á ¼º°ø! (Port: 6379)");
-        }
-        else
-        {
-            logger.LogError(" [Redis] ¿¬°á ½ÇÆĞ...");
-        }
+            logger.LogInformation(" [Redis] ìºì‹œ ì„œë²„ ì—°ê²° ì„±ê³µ!");
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "¼­¹ö ½ÃÀÛ µµÁß Ä¡¸íÀûÀÎ ¿¡·¯ ¹ß»ı!");
+       
+        logger.LogError($" ì„œë²„ ì‹œì‘ ì‹¤íŒ¨! ì›ì¸: {ex.Message}");
+
+        if (ex.InnerException != null)
+        {
+            logger.LogError($" ìƒì„¸ ì›ì¸: {ex.InnerException.Message}");
+        }
     }
 }
 
