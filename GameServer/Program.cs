@@ -1,20 +1,16 @@
-<<<<<<< Updated upstream
-
-namespace GameServer
-=======
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-using GameServer.Data; // AppDbContext∞° ¿÷¥¬ ≥◊¿”Ω∫∆‰¿ÃΩ∫ (ø°∑Ø≥™∏È Alt+Enter∑Œ ºˆ¡§)
+using GameServer; 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. MySQL µÓ∑œ
+// 1. MySQL Îì±Î°ù
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-// 2. Redis µÓ∑œ 
-var redisString = builder.Configuration.GetConnectionString("RedisConnection")!;
+// 2. Redis Îì±Î°ù 
+var redisString = builder.Configuration.GetConnectionString("RedisConnection");
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     ConnectionMultiplexer.Connect(redisString));
@@ -25,40 +21,49 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 3. º≠πˆ Ω√¿€ Ω√ DB ø¨∞· ≈◊Ω∫∆Æ 
+// 3. ÏÑúÎ≤Ñ ÏãúÏûë Ïãú DB Ïó∞Í≤∞ ÌÖåÏä§Ìä∏ 
 using (var scope = app.Services.CreateScope())
->>>>>>> Stashed changes
 {
-    public class Program
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    try
     {
-        public static void Main(string[] args)
+        // 1. MySQL Ïó∞Í≤∞ Ï†ïÎ∞Ä Í≤ÄÏÇ¨
+        var dbContext = services.GetRequiredService<AppDbContext>();
+
+       
+        dbContext.Database.OpenConnection();
+        dbContext.Database.CloseConnection();
+
+        logger.LogInformation(" [MySQL] DB Ïó∞Í≤∞ ÏÑ±Í≥µ! (Port: 3306)");
+
+        // 2. Redis Ïó∞Í≤∞ Í≤ÄÏÇ¨
+        var redis = services.GetRequiredService<IConnectionMultiplexer>();
+        if (redis.IsConnected)
+            logger.LogInformation(" [Redis] Ï∫êÏãú ÏÑúÎ≤Ñ Ïó∞Í≤∞ ÏÑ±Í≥µ!");
+    }
+    catch (Exception ex)
+    {
+       
+        logger.LogError($" ÏÑúÎ≤Ñ ÏãúÏûë Ïã§Ìå®! ÏõêÏù∏: {ex.Message}");
+
+        if (ex.InnerException != null)
         {
-            var builder = WebApplication.CreateBuilder(args);
-
-            // Add services to the container.
-
-            builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-
-            var app = builder.Build();
-
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-            app.UseHttpsRedirection();
-
-            app.UseAuthorization();
-
-
-            app.MapControllers();
-
-            app.Run();
+            logger.LogError($" ÏÉÅÏÑ∏ ÏõêÏù∏: {ex.InnerException.Message}");
         }
     }
 }
+
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
