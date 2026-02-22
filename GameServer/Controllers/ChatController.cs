@@ -35,6 +35,7 @@ namespace GameServer.Controllers
 
           
             await db.ListRightPushAsync(CHAT_LIST_KEY, formattedMessage);
+            await db.KeyExpireAsync(CHAT_LIST_KEY, TimeSpan.FromHours(1));
             await db.ListTrimAsync(CHAT_LIST_KEY, -50, -1); // 최신 50개만 유지
 
           
