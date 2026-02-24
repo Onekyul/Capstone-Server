@@ -1,72 +1,82 @@
 #  [캡스톤프로젝트 Solike] - Game Backend Server Architecture
 
-![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-EC2-232F3E?logo=amazon-aws&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?logo=redis&logoColor=white)
-![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
-![Photon](https://img.shields.io/badge/Network-Photon_Fusion-00B2FF)
+![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?logo=redis&logoColor=white) ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white) ![Photon](https://img.shields.io/badge/Network-Photon_Fusion-00B2FF)
 
->**로그라이크 멀티플레이어 게임 백엔드 서버** 
+로그라이크 멀티플레이어 게임 'Solike'의 반응성과 데이터 무결성을 보장하기 위한 하이브리드 백엔드 서버.
 
 <br>
 
 ##  System Architecture
 
-본 프로젝트는 게임의 반응성(Latency)과 데이터 무결성(Integrity)이라는 두 가지 목표를 달성하기 위해 **이원화된 네트워크 구조**를 채택.
+비용 효율성과 게임의 반응성을 위해 **이원화된 네트워크 구조** 채택.
 
+* **Lobby (마을):** `Photon Shared Mode` - 유저 간 채팅 및 가벼운 인터랙션 (비용 절감)
+* **Dungeon (레이드):** `Photon Dedicated Server` - 중요 전투 로직의 서버 권한(Server Authority) 검증
+* **Backend API:** `ASP.NET Core` + `MySQL/Redis` - 재화, 아이템, 계정 등 영구 데이터 검증 및 저장
 
-### 🔹 Hybrid Network Topology
-| 구분 | 기술 스택 | 역할 및 특징 |
+<br>
+
+##  Key Engineering Highlights (핵심 설계 특징)
+
+####  1. 3-Tier Layered Architecture (보안 강화)
+클라이언트의 DB 직접 접근 원천 차단. 모든 아이템 획득/재화 소모 로직은 API 서버의 교차 검증을 거치며, 핵심 전투 결과는 `Secret Key` 인증을 가진 **데디케이트 서버(Dedicated Server)만이 DB에 기록할 권한**을 가지도록 설계.
+
+<br>
+
+####  2. Redis 기반 실시간 분산 처리 및 I/O 최적화
+
+**Redis Pub/Sub 기반 실시간 채팅 시스템**
+다중 서버 인스턴스 환경에서도 지연 없는 통신을 제공하기 위해 **Redis Pub/Sub** 아키텍처 도입. 로비 및 글로벌 채널에서 발생하는 채팅 메시지를 분산된 서버 간에 초고속으로 브로드캐스팅하여, 유저 트래픽이 증가하더라도 안정적인 실시간 채팅 경험 보장.
+
+<br>
+
+**Queue & Background Worker 기반 Write-Back 아키텍처**
+빈번하게 발생하는 인게임 상태 변화(재화 획득, 스탯 갱신 등)를 매번 DB에 쿼리하여 생기는 I/O 병목 제거. 인게임 데이터는 메모리 기반의 **Redis에 즉시 캐싱(Hot Storage)**하여 게임의 반응성을 극대화함. 캐싱과 동시에 변경된 데이터를 내부 큐(Queue)에 적재하고, **.NET Background Worker**가 백그라운드에서 큐를 비동기적으로 소비하며 MySQL(Cold Storage)에 영구 저장하는 **Write-Back 방식** 채택.
+
+<br>
+
+####  3. Docker Containerization (인프라 환경 파편화 방지)
+Windows 로컬 개발 환경과 AWS 배포 서버(Linux) 간의 OS 차이로 인한 파편화 방지. API Server, MySQL, Redis 등 모든 백엔드 인프라를 **Docker Compose로 컨테이너화**하여 단일 명령어로 완벽하게 동일한 런타임 환경 구축.
+
+<br>
+
+##  Environment & API Settings
+
+서버 실행 및 API 연동을 위한 필수 환경 변수 및 설정 가이드.
+
+### 1. 환경 변수 설정 (.env)
+프로젝트 루트 디렉토리(`docker-compose.yml` 위치)에 `.env` 파일을 생성하고 아래 값 설정.
+
+```env
+# Database Settings
+DB_PASSWORD=your_secure_password
+```
+
+### 2. 서버 실행 (Docker)
+Docker Desktop 실행 상태에서 아래 명령어를 통해 전체 서버 인프라를 백그라운드에서 구동.
+
+```bash
+docker-compose up -d --build
+```
+
+### 3. API Endpoints (Swagger)
+서버 실행 후, 브라우저에서 아래 주소로 접속하여 API 명세 확인 및 테스트 가능.
+* **API Docs URL:** `http://localhost:7200/swagger` *(포트는 환경에 따라 다를 수 있음)*
+
+| Category | Endpoint | Description |
 | :--- | :--- | :--- |
-| **Lobby & Hub** | **Photon Shared Mode** | 마을 내 유저 간 채팅 및 가벼운 인터랙션 처리 (비용 절감) |
-| **Dungeon (Raid)** | **Photon Dedicated Server** | 보스 레이드 등 중요 전투 로직의 **서버 권한(Server Authority)** 검증 수행 |
-| **Backend API** | **ASP.NET Core (AWS)** | 로그인, 인벤토리, 상점 등 **보안이 필요한 영구 데이터** 처리 |
+| **Auth** | `POST /api/Auth/guest-login` | 기기 ID 기반 로그인 및 유저 정보 반환 |
+| | `POST /api/Auth/register` | 신규 유저 가입 (닉네임 중복 방어 로직 포함) |
+| | `GET /api/Auth/check-nickname` | 닉네임 사용 가능 여부 확인 |
+| **Chat** | `POST /api/Chat/send` | 로비 채팅 메시지 전송 (Redis Pub/Sub 브로드캐스팅) |
+| | `GET /api/Chat/receive` | 최근 채팅 내역 20개 조회 (Redis List) |
+| **Game** | `POST /api/Game/load` | 인게임 데이터 로드 (Redis 캐시 우선 조회 패턴 적용) |
+| | `POST /api/Game/save` | 데이터 캐싱 및 DB 저장을 위한 Write-Back 큐(`task:writeback`) 적재 |
+| **Party** | `POST /api/Party/create` | 로비 파티(방) 생성 (Redis Hash/Set 활용) |
+| | `GET /api/Party/list` | 현재 활성화된 로비 파티 목록 전체 조회 |
+| | `POST /api/Party/enter` | 방장 권한 검증 및 던전(인게임) 씬 진입 처리 |
 
 <br>
 
-##  Key Engineering Decisions (핵심 설계)
-
-### 1. 3-Tier Layered Architecture (보안 강화)
-- **Problem:** 클라이언트가 DB에 직접 접근할 경우 아이템 복사 및 데이터 변조 위험 존재.
-- **Solution:** `Client` ↔ `API Server` ↔ `Database`의 3계층 구조 도입.
-  - 모든 재화 소모 및 아이템 획득 로직은 API 서버 내에서 검증 후 수행.
-  - 데디케이트 서버(Dungeon Host)만이 결과 저장 API(`Secret Key` 인증)를 호출할 수 있도록 함
-
-### 2. Redis Write-Back Strategy (성능 최적화)
-- **Problem:** 빈번한 전투 및 상태 변화를 매번 MySQL에 저장 시 DB I/O 병목 발생.
-- **Solution:** **Redis를 인게임 'Hot Storage'로 활용.**
-  - 게임 중 플레이어 상태(HP, 위치, 임시 획득 아이템)는 Redis에서 메모리 기반 캐싱으로 초고속 처리.
-  - 던전 클리어 또는 세션 종료 시점에만 MySQL(Cold Storage)에 비동기로 일괄 저장(**Write-Back**)하여 DB 부하 최소화.
-
-### 3. Docker Container Infrastructure (환경 일관성)
-- **Problem:** 로컬 개발 환경(Windows)과 배포 서버(AWS Linux) 간의 환경 차이로 인한 오류.
-- **Solution:** `API Server`, `MySQL`, `Redis`를 **Docker Compose**로 컨테이너화.
-  - `docker-compose up` 명령어 하나로 전체 백엔드 인프라 구축 가능.
-  - 데디케이트 서버가 어느 환경에서 실행되든 동일한 백엔드 환경 보장.
-
-<br>
-
-## 💾 Database Schema (Optimized for Roguelike)
-
-RPG 장르 특성상 , **유일한 영구적 성장 요소인 '장비'와 '진행도'**에 집중하여 스키마를 경량화했습니다.
-
-- **Players:** 계정 정보 및 `HighestClearStage` (진행도) 저장.
-- **PlayerItems:** 획득한 장비 저장. `EnchantOptions` 컬럼에 **JSON 포맷**으로 가변적인 옵션 데이터를 저장하여 기획 변경에 유연하게 대처.
-
-<br>
-
-## 🛠️ Tech Stack
-
-| Category | Technology | Usage |
-| :--- | :--- | :--- |
-| **Framework** | .NET 8 (ASP.NET Core) | RESTful API Server |
-| **Database** | MySQL 8.0 | Persistent Data Storage (Items, Logs) |
-| **Cache** | Redis | Session Management, Write-Back Buffer |
-| **Infra** | AWS EC2 & Docker | Server Hosting & Orchestration |
-| **Network** | Photon Fusion 2 | Real-time Gameplay Sync (UDP) |
-
-<br>
-
-## 아키텍처 구조도
-<img width="785" height="817" alt="diagram-export-2026 -1 -7 -오후-6_30_57" src="https://github.com/user-attachments/assets/e4685ae9-bc7a-4073-9453-29062c479bee" />
+##  Architecture Diagram
+<img width="800" alt="System Architecture Diagram" src="https://github.com/user-attachments/assets/e4685ae9-bc7a-4073-9453-29062c479bee" />
