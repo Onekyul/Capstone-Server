@@ -75,6 +75,49 @@ namespace GameServer.Controllers
         }
 
 
+        // 데디서버용: 플레이어 장비 원본 데이터 반환
+        [HttpGet("player-stats")]
+        public async Task<IActionResult> GetPlayerStats([FromQuery] int userId)
+        {
+            var db = _redis.GetDatabase();
+            string key = $"user:{userId}:data";
+
+            string cachedData = await db.StringGetAsync(key);
+
+            if (!string.IsNullOrEmpty(cachedData))
+            {
+                var data = JsonSerializer.Deserialize<GameDataDto>(cachedData);
+                var response = new PlayerStatsRes
+                {
+                    userId = data.userId,
+                    equippedWeapon = data.equip?.weapon,
+                    equippedHelmet = data.equip?.helmet,
+                    equippedArmor = data.equip?.armor,
+                    equippedBoots = data.equip?.boots,
+                    equipments = data.equipments ?? new List<EquipItemDto>()
+                };
+                return Ok(response);
+            }
+
+            // 캐시 미스 시 DB 조회
+            var user = await _context.Users
+                .Include(u => u.Equipments)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+                return NotFound("유저를 찾을 수 없습니다.");
+
+            return Ok(new PlayerStatsRes
+            {
+                userId = user.Id,
+                equippedWeapon = user.EquippedWeaponId,
+                equippedHelmet = user.EquippedHelmetId,
+                equippedArmor = user.EquippedArmorId,
+                equippedBoots = user.EquippedBootsId,
+                equipments = user.Equipments.Select(e => new EquipItemDto { id = e.ItemId, level = e.Level }).ToList()
+            });
+        }
+
         //Save API
         [HttpPost("save")]
         public async Task<IActionResult> SaveGame([FromBody] GameDataDto clientData)
