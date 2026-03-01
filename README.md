@@ -72,9 +72,19 @@ docker-compose up -d --build
 | | `GET /api/Chat/receive` | 최근 채팅 내역 20개 조회 (Redis List) |
 | **Game** | `POST /api/Game/load` | 인게임 데이터 로드 (Redis 캐시 우선 조회 패턴 적용) |
 | | `POST /api/Game/save` | 데이터 캐싱 및 DB 저장을 위한 Write-Back 큐(`task:writeback`) 적재 |
-| **Party** | `POST /api/Party/create` | 로비 파티(방) 생성 (Redis Hash/Set 활용) |
+| | `GET /api/Game/player-stats` | 데디케이티드 서버용 플레이어 장비 데이터 조회 |
+| **Party** | `POST /api/Party/create` | 로비 파티(방) 생성 (리더 자동 등록, Redis Hash/Set 활용) |
 | | `GET /api/Party/list` | 현재 활성화된 로비 파티 목록 전체 조회 |
-| | `POST /api/Party/enter` | 방장 권한 검증 및 던전(인게임) 씬 진입 처리 |
+| | `GET /api/Party/detail/{partyId}` | 파티 상세 조회 — 멤버 닉네임 목록, 상태, 세션 정보 (폴링용) |
+| | `POST /api/Party/join` | 파티 즉시 참가 (인원 초과/중복 참가 검증) |
+| | `POST /api/Party/leave` | 파티 탈퇴 (방장 탈퇴 시 파티 해산) |
+| | `POST /api/Party/change-dungeon` | 방장 전용 — 던전 종류 변경 |
+| | `POST /api/Party/kick` | 방장 전용 — 파티원 강퇴 |
+| | `POST /api/Party/enter` | 방장 전용 — 던전 입장 (데디서버 세션 생성 및 핸드오버) |
+| **Dungeon** | `POST /api/Dungeon/create-boss-session` | 보스 던전 세션 생성 (Redis Pub/Sub 데디서버 연동, 5초 타임아웃) |
+| | `POST /api/Dungeon/result` | 보스전 결과 처리 — 클리어 유저 랭킹 등록 (데디서버 호출) |
+| **Ranking** | `GET /api/Ranking/boss` | 보스 던전 클리어 타임 랭킹 조회 (Redis Sorted Set) |
+| **Upgrade** | `POST /api/Upgrade/attempt` | 장비 강화 시도 (확률 기반 검증) |
 
 <br>
 

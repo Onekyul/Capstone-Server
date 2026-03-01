@@ -21,6 +21,5 @@ namespace GameServer.DTO
         public int UserId { get; set; }
         public bool Cleared { get; set; }
         public float ClearTime { get; set; }
-        public string Nickname { get; set; }
     }
 }

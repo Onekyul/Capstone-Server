@@ -83,14 +83,32 @@ namespace GameServer.Controllers
         {
             var db = _redis.GetDatabase();
 
-            // 1. 클리어한 유저들 랭킹 등록
+            // 1. 클리어한 유저들 랭킹 등록 (nickname은 Redis 캐시에서 조회)
             foreach (var result in req.Results)
             {
                 if (result.Cleared)
                 {
-                    string member = $"{result.UserId}:{result.Nickname}";
+                    // Redis 캐시에서 닉네임 조회
+                    string cacheKey = $"user:{result.UserId}:data";
+                    var cachedJson = await db.StringGetAsync(cacheKey);
+                    if (cachedJson.IsNullOrEmpty) continue;
+
+                    var gameData = JsonSerializer.Deserialize<GameDataDto>(cachedJson);
+                    if (gameData == null) continue;
+
+                    string nickname = gameData.nickname;
+                    string member = $"{result.UserId}:{nickname}";
+
+                    // 동일 유저가 이미 있으면 더 빠른 기록일 때만 갱신
+                    var existingScore = await db.SortedSetScoreAsync("ranking:boss", member);
+                    if (existingScore.HasValue && existingScore.Value <= result.ClearTime)
+                    {
+                        _logger.LogInformation($"[Ranking] 기존 기록이 더 빠름: {nickname} (기존 {existingScore.Value}초 vs 신규 {result.ClearTime}초)");
+                        continue;
+                    }
+
                     await db.SortedSetAddAsync("ranking:boss", member, result.ClearTime);
-                    _logger.LogInformation($"[Ranking] 보스 랭킹 등록: {result.Nickname} - {result.ClearTime}초");
+                    _logger.LogInformation($"[Ranking] 보스 랭킹 등록: {nickname} - {result.ClearTime}초");
                 }
             }
 
