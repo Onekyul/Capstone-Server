@@ -63,18 +63,20 @@ docker-compose up -d --build
 서버 실행 후, 브라우저에서 아래 주소로 접속하여 API 명세 확인 및 테스트 가능.
 * **API Docs URL:** `http://localhost:7200/swagger` *(포트는 환경에 따라 다를 수 있음)*
 
-| Category | Endpoint | Description |
-| :--- | :--- | :--- |
-| **Auth** | `POST /api/Auth/guest-login` | 기기 ID 기반 로그인 및 유저 정보 반환 |
-| | `POST /api/Auth/register` | 신규 유저 가입 (닉네임 중복 방어 로직 포함) |
-| | `GET /api/Auth/check-nickname` | 닉네임 사용 가능 여부 확인 |
-| **Chat** | `POST /api/Chat/send` | 로비 채팅 메시지 전송 (Redis Pub/Sub 브로드캐스팅) |
-| | `GET /api/Chat/receive` | 최근 채팅 내역 20개 조회 (Redis List) |
-| **Game** | `POST /api/Game/load` | 인게임 데이터 로드 (Redis 캐시 우선 조회 패턴 적용) |
-| | `POST /api/Game/save` | 데이터 캐싱 및 DB 저장을 위한 Write-Back 큐(`task:writeback`) 적재 |
-| **Party** | `POST /api/Party/create` | 로비 파티(방) 생성 (Redis Hash/Set 활용) |
-| | `GET /api/Party/list` | 현재 활성화된 로비 파티 목록 전체 조회 |
-| | `POST /api/Party/enter` | 방장 권한 검증 및 던전(인게임) 씬 진입 처리 |
+ | Category | Endpoint | Description |
+  | :--- | :--- | :--- |
+  | **Auth** | `POST /api/Auth/guest-login` | 기기 ID 기반 로그인 및 유저 정보 반환 |     | | `POST /api/Auth/register` | 신규 유저 가입 (닉네임 중복 방어 로직 포함) |
+  | | `GET /api/Auth/check-nickname` | 닉네임 사용 가능 여부 확인 |                       | **Chat** | `POST /api/Chat/send` | 로비 채팅 메시지 전송 (Redis Pub/Sub 브로드캐스팅) |
+  | | `GET /api/Chat/receive` | 최근 채팅 내역 20개 조회 (Redis List) |
+  | **Game** | `POST /api/Game/load` | 인게임 데이터 로드 (Redis 캐시 우선 조회 패턴 적용) |
+  | | `POST /api/Game/save` | 데이터 캐싱 및 DB 저장을 위한 Write-Back  큐(`task:writeback`) 적재 |
+  | **Party** | `POST /api/Party/create` | 로비 파티(방) 생성 (Redis Hash/Set 활용) |
+  | | `GET /api/Party/list` | 현재 활성화된 로비 파티 목록 전체 조회 |
+  | | `POST /api/Party/enter` | 방장 권한 검증 및 던전(인게임) 씬 진입 처리 |
+  | **Upgrade** | `POST /api/Upgrade/attempt` | 장비 강화 시도 (확률 기반 성공/실패 검증) |
+  | **Dungeon** | `POST /api/Dungeon/create-boss-session` | 보스 던전 세션 생성 및 데디케이티드서버 준비 대기 (Redis Pub/Sub) |
+  | | `POST /api/Dungeon/result` | 보스전 결과 처리 및 랭킹 등록 (데디케이티드서버 호출용) |
+  | **Ranking** | `GET /api/Ranking/boss` | 보스 클리어 타임 기준 랭킹 조회 (Redis Sorted Set) |
 
 <br>
 
