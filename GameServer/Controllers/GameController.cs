@@ -138,7 +138,8 @@ namespace GameServer.Controllers
 
         }
 
-        // [벤치마크용] MySQL 직접 저장 (테스트 후 삭제)
+        /*
+        // [벤치마크용] MySQL 직접 저장 — Write-Back과 성능 비교를 위한 엔드포인트
         [HttpPost("save-direct")]
         public async Task<IActionResult> SaveGameDirect([FromBody] GameDataDto clientData)
         {
@@ -200,6 +201,7 @@ namespace GameServer.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "DB 직접 저장 완료" });
         }
+        */
     }
 }
 

@@ -48,7 +48,8 @@ namespace GameServer.Controllers
             return Ok(new BossRankingRes { Rankings = rankings });
         }
 
-        // [벤치마크용] Redis Sorted Set 랭킹 조회 - 10만 건 데이터 (테스트 후 삭제)
+        /*
+        // [벤치마크용] Redis Sorted Set 랭킹 조회 - 10만 건 데이터
         [HttpGet("boss-redis-bench")]
         public async Task<IActionResult> GetBossRankingRedisBench([FromQuery] int top = 10)
         {
@@ -66,7 +67,7 @@ namespace GameServer.Controllers
             return Ok(new BossRankingRes { Rankings = rankings });
         }
 
-        // [벤치마크용] MySQL ORDER BY 랭킹 조회 (테스트 후 삭제)
+        // [벤치마크용] MySQL ORDER BY 랭킹 조회
         [HttpGet("boss-mysql")]
         public async Task<IActionResult> GetBossRankingMysql([FromQuery] int top = 10)
         {
@@ -82,5 +83,6 @@ namespace GameServer.Controllers
 
             return Ok(new BossRankingRes { Rankings = rankings });
         }
+        */
     }
 }
