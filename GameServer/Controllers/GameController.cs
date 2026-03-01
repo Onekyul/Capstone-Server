@@ -135,7 +135,70 @@ namespace GameServer.Controllers
             await db.ListLeftPushAsync("task:writeback", clientData.userId.ToString());
 
             return Ok(new { message = "서버 메모리에 저장됨(Async)" });
-           
+
+        }
+
+        // [벤치마크용] MySQL 직접 저장 (테스트 후 삭제)
+        [HttpPost("save-direct")]
+        public async Task<IActionResult> SaveGameDirect([FromBody] GameDataDto clientData)
+        {
+            if (clientData == null) return BadRequest("데이터가 비어있습니다.");
+
+            var user = await _context.Users
+                .Include(u => u.Items)
+                .Include(u => u.Equipments)
+                .Include(u => u.Enchants)
+                .FirstOrDefaultAsync(u => u.Id == clientData.userId);
+
+            if (user == null) return BadRequest("유저를 찾을 수 없습니다.");
+
+            user.MaxClearedStage = clientData.stage;
+            if (clientData.equip != null)
+            {
+                user.EquippedWeaponId = clientData.equip.weapon;
+                user.EquippedHelmetId = clientData.equip.helmet;
+                user.EquippedArmorId = clientData.equip.armor;
+                user.EquippedBootsId = clientData.equip.boots;
+            }
+
+            var oldItems = _context.UserItems.Where(i => i.UserId == user.Id);
+            _context.UserItems.RemoveRange(oldItems);
+            foreach (var itemDto in clientData.inventory)
+            {
+                _context.UserItems.Add(new UserItem
+                {
+                    UserId = user.Id,
+                    ItemId = itemDto.id,
+                    Count = itemDto.count
+                });
+            }
+
+            var oldEquips = _context.UserEquipments.Where(e => e.UserId == user.Id);
+            _context.UserEquipments.RemoveRange(oldEquips);
+            foreach (var equipDto in clientData.equipments)
+            {
+                _context.UserEquipments.Add(new UserEquipment
+                {
+                    UserId = user.Id,
+                    ItemId = equipDto.id,
+                    Level = equipDto.level
+                });
+            }
+
+            var oldEnchants = _context.UserEnchants.Where(e => e.UserId == user.Id);
+            _context.UserEnchants.RemoveRange(oldEnchants);
+            foreach (var enchantDto in clientData.enchants)
+            {
+                _context.UserEnchants.Add(new UserEnchant
+                {
+                    UserId = user.Id,
+                    EnchantId = enchantDto.id,
+                    Level = enchantDto.level
+                });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "DB 직접 저장 완료" });
         }
     }
 }
