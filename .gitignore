@@ -416,3 +416,5 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+GameServer/CLAUDE.md
+GameServer/.claude/settings.local.json

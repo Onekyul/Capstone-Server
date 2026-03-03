@@ -13,5 +13,6 @@ namespace GameServer.Data
         public DbSet<UserItem> UserItems { get; set; }
         public DbSet<UserEquipment> UserEquipments { get; set; }
         public DbSet<UserEnchant> UserEnchants { get; set; }
+        public DbSet<BossRanking> BossRankings { get; set; }
     }
 }

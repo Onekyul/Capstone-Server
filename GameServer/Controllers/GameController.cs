@@ -75,6 +75,49 @@ namespace GameServer.Controllers
         }
 
 
+        // 데디서버용: 플레이어 장비 원본 데이터 반환
+        [HttpGet("player-stats")]
+        public async Task<IActionResult> GetPlayerStats([FromQuery] int userId)
+        {
+            var db = _redis.GetDatabase();
+            string key = $"user:{userId}:data";
+
+            string cachedData = await db.StringGetAsync(key);
+
+            if (!string.IsNullOrEmpty(cachedData))
+            {
+                var data = JsonSerializer.Deserialize<GameDataDto>(cachedData);
+                var response = new PlayerStatsRes
+                {
+                    userId = data.userId,
+                    equippedWeapon = data.equip?.weapon,
+                    equippedHelmet = data.equip?.helmet,
+                    equippedArmor = data.equip?.armor,
+                    equippedBoots = data.equip?.boots,
+                    equipments = data.equipments ?? new List<EquipItemDto>()
+                };
+                return Ok(response);
+            }
+
+            // 캐시 미스 시 DB 조회
+            var user = await _context.Users
+                .Include(u => u.Equipments)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+                return NotFound("유저를 찾을 수 없습니다.");
+
+            return Ok(new PlayerStatsRes
+            {
+                userId = user.Id,
+                equippedWeapon = user.EquippedWeaponId,
+                equippedHelmet = user.EquippedHelmetId,
+                equippedArmor = user.EquippedArmorId,
+                equippedBoots = user.EquippedBootsId,
+                equipments = user.Equipments.Select(e => new EquipItemDto { id = e.ItemId, level = e.Level }).ToList()
+            });
+        }
+
         //Save API
         [HttpPost("save")]
         public async Task<IActionResult> SaveGame([FromBody] GameDataDto clientData)
@@ -92,8 +135,73 @@ namespace GameServer.Controllers
             await db.ListLeftPushAsync("task:writeback", clientData.userId.ToString());
 
             return Ok(new { message = "서버 메모리에 저장됨(Async)" });
-           
+
         }
+
+        /*
+        // [벤치마크용] MySQL 직접 저장 — Write-Back과 성능 비교를 위한 엔드포인트
+        [HttpPost("save-direct")]
+        public async Task<IActionResult> SaveGameDirect([FromBody] GameDataDto clientData)
+        {
+            if (clientData == null) return BadRequest("데이터가 비어있습니다.");
+
+            var user = await _context.Users
+                .Include(u => u.Items)
+                .Include(u => u.Equipments)
+                .Include(u => u.Enchants)
+                .FirstOrDefaultAsync(u => u.Id == clientData.userId);
+
+            if (user == null) return BadRequest("유저를 찾을 수 없습니다.");
+
+            user.MaxClearedStage = clientData.stage;
+            if (clientData.equip != null)
+            {
+                user.EquippedWeaponId = clientData.equip.weapon;
+                user.EquippedHelmetId = clientData.equip.helmet;
+                user.EquippedArmorId = clientData.equip.armor;
+                user.EquippedBootsId = clientData.equip.boots;
+            }
+
+            var oldItems = _context.UserItems.Where(i => i.UserId == user.Id);
+            _context.UserItems.RemoveRange(oldItems);
+            foreach (var itemDto in clientData.inventory)
+            {
+                _context.UserItems.Add(new UserItem
+                {
+                    UserId = user.Id,
+                    ItemId = itemDto.id,
+                    Count = itemDto.count
+                });
+            }
+
+            var oldEquips = _context.UserEquipments.Where(e => e.UserId == user.Id);
+            _context.UserEquipments.RemoveRange(oldEquips);
+            foreach (var equipDto in clientData.equipments)
+            {
+                _context.UserEquipments.Add(new UserEquipment
+                {
+                    UserId = user.Id,
+                    ItemId = equipDto.id,
+                    Level = equipDto.level
+                });
+            }
+
+            var oldEnchants = _context.UserEnchants.Where(e => e.UserId == user.Id);
+            _context.UserEnchants.RemoveRange(oldEnchants);
+            foreach (var enchantDto in clientData.enchants)
+            {
+                _context.UserEnchants.Add(new UserEnchant
+                {
+                    UserId = user.Id,
+                    EnchantId = enchantDto.id,
+                    Level = enchantDto.level
+                });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "DB 직접 저장 완료" });
+        }
+        */
     }
 }
 

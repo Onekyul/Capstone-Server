@@ -45,7 +45,7 @@ namespace GameServer.Controllers
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterReq req)
         {
-           
+
             if (req == null || string.IsNullOrEmpty(req.DeviceId) || string.IsNullOrEmpty(req.Nickname))
             {
                 return BadRequest("Invalid request data");
@@ -58,17 +58,17 @@ namespace GameServer.Controllers
                 return BadRequest("Nickname already exists");
             }
 
-            
+
             var user = new User
             {
                 DeviceId = req.DeviceId,
-                Nickname = req.Nickname, 
+                Nickname = req.Nickname,
                 MaxClearedStage = 0,
                 CreatedAt = DateTime.Now,
             };
 
-            _context.Users.Add(user); 
-            _context.SaveChanges();   
+            _context.Users.Add(user);
+            _context.SaveChanges();
 
             Console.WriteLine($"[신규 가입] {user.Nickname} (ID: {user.Id})");
 
@@ -79,9 +79,9 @@ namespace GameServer.Controllers
                 stage = user.MaxClearedStage
             });
         }
-    }
 
-    [HttpGet("check-nickname")]
+
+        [HttpGet("check-nickname")]
         public IActionResult CheckNickname([FromQuery] string nickname)
         {
             if (string.IsNullOrEmpty(nickname))
@@ -102,9 +102,9 @@ namespace GameServer.Controllers
         public string DeviceId { get; set; }
     }
 
-public class RegisterReq
-{
-    public string DeviceId { get; set; }
-    public string Nickname { get; set; }
+    public class RegisterReq
+    {
+        public string DeviceId { get; set; }
+        public string Nickname { get; set; }
+    }
 }
-

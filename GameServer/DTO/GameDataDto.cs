@@ -37,4 +37,14 @@
         public string id { get; set; }
         public int level { get; set; }
     }
+
+    public class PlayerStatsRes
+    {
+        public int userId { get; set; }
+        public string equippedWeapon { get; set; }
+        public string equippedHelmet { get; set; }
+        public string equippedArmor { get; set; }
+        public string equippedBoots { get; set; }
+        public List<EquipItemDto> equipments { get; set; }
+    }
 }
