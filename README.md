@@ -75,28 +75,33 @@ docker-compose up -d --build
 
 - **API Docs URL:** `http://localhost:7200/swagger` _(포트는 환경에 따라 다를 수 있음)_
 
-| Category    | Endpoint                                | Description                                                        |
-| :---------- | :-------------------------------------- | :----------------------------------------------------------------- |
-| **Auth**    | `POST /api/Auth/guest-login`            | 기기 ID 기반 로그인 및 유저 정보 반환                              |
-|             | `POST /api/Auth/register`               | 신규 유저 가입 (닉네임 중복 방어 로직 포함)                        |
-|             | `GET /api/Auth/check-nickname`          | 닉네임 사용 가능 여부 확인                                         |
-| **Chat**    | `POST /api/Chat/send`                   | 로비 채팅 메시지 전송 (Redis Pub/Sub 브로드캐스팅)                 |
-|             | `GET /api/Chat/receive`                 | 최근 채팅 내역 20개 조회 (Redis List)                              |
-| **Game**    | `POST /api/Game/load`                   | 인게임 데이터 로드 (Redis 캐시 우선 조회 패턴 적용)                |
-|             | `POST /api/Game/save`                   | 데이터 캐싱 및 DB 저장을 위한 Write-Back 큐(`task:writeback`) 적재 |
-|             | `GET /api/Game/player-stats`            | 데디케이티드 서버용 플레이어 장비 데이터 조회                      |
-| **Party**   | `POST /api/Party/create`                | 로비 파티(방) 생성 (리더 자동 등록, Redis Hash/Set 활용)           |
-|             | `GET /api/Party/list`                   | 현재 활성화된 로비 파티 목록 전체 조회                             |
-|             | `GET /api/Party/detail/{partyId}`       | 파티 상세 조회 — 멤버 닉네임 목록, 상태, 세션 정보 (폴링용)        |
-|             | `POST /api/Party/join`                  | 파티 즉시 참가 (인원 초과/중복 참가 검증)                          |
-|             | `POST /api/Party/leave`                 | 파티 탈퇴 (방장 탈퇴 시 파티 해산)                                 |
-|             | `POST /api/Party/change-dungeon`        | 방장 전용 — 던전 종류 변경                                         |
-|             | `POST /api/Party/kick`                  | 방장 전용 — 파티원 강퇴                                            |
-|             | `POST /api/Party/enter`                 | 방장 전용 — 던전 입장 (데디서버 세션 생성 및 핸드오버)             |
-| **Dungeon** | `POST /api/Dungeon/create-boss-session` | 보스 던전 세션 생성 (Redis Pub/Sub 데디서버 연동, 5초 타임아웃)    |
-|             | `POST /api/Dungeon/result`              | 보스전 결과 처리 — 클리어 유저 랭킹 등록 (데디서버 호출)           |
-| **Ranking** | `GET /api/Ranking/boss`                 | 보스 던전 클리어 타임 랭킹 조회 (Redis Sorted Set)                 |
-| **Upgrade** | `POST /api/Upgrade/attempt`             | 장비 강화 시도 (확률 기반 검증)                                    |
+| Category    | Endpoint                                | Description                                                                          |
+| :---------- | :-------------------------------------- | :----------------------------------------------------------------------------------- |
+| **Auth**    | `POST /api/Auth/guest-login`            | 기기 ID 기반 로그인 및 유저 정보 반환                                                |
+|             | `POST /api/Auth/register`               | 신규 유저 가입 (닉네임 중복 방어 로직 포함)                                          |
+|             | `GET /api/Auth/check-nickname`          | 닉네임 사용 가능 여부 확인                                                           |
+| **Chat**    | `POST /api/Chat/send`                   | 로비 채팅 메시지 전송 (Redis Pub/Sub 브로드캐스팅, 최신 50개 유지)                   |
+|             | `GET /api/Chat/receive`                 | 최근 채팅 내역 20개 조회 (Redis List)                                                |
+| **Game**    | `POST /api/Game/load`                   | 인게임 데이터 로드 (Redis 캐시 우선 조회 패턴 적용)                                  |
+|             | `POST /api/Game/save`                   | 데이터 캐싱 및 DB 저장을 위한 Write-Back 큐(`task:writeback`) 적재                   |
+|             | `POST /api/Game/save-direct`            | [벤치마크용] MySQL 직접 저장 — Write-Back 성능 비교용                                |
+|             | `GET /api/Game/player-stats`            | 데디케이티드 서버용 플레이어 장비 데이터 조회                                        |
+| **Party**   | `POST /api/Party/create`                | 로비 파티(방) 생성 (리더 자동 등록, Redis Hash/Set 활용)                             |
+|             | `GET /api/Party/list`                   | Waiting 상태인 활성 파티 목록 조회 (PartyId 내림차순)                                |
+|             | `GET /api/Party/detail/{partyId}`       | 파티 상세 조회 — 멤버 닉네임·준비 상태, 세션 정보 (폴링용)                           |
+|             | `POST /api/Party/join`                  | 파티 즉시 참가 (인원 초과/중복 참가 검증)                                            |
+|             | `POST /api/Party/ready`                 | 파티원 준비/준비취소 토글 (Ready Set 관리)                                           |
+|             | `POST /api/Party/leave`                 | 파티 탈퇴 (방장 탈퇴 시 파티 해산)                                                  |
+|             | `POST /api/Party/change-dungeon`        | 방장 전용 — 던전 종류 변경                                                           |
+|             | `POST /api/Party/kick`                  | 방장 전용 — 파티원 강퇴                                                              |
+|             | `POST /api/Party/enter`                 | 방장 전용 — 전원 준비 확인 후 던전 입장 (Redis Pub/Sub 데디서버 연동, 5초 타임아웃)  |
+| **Dungeon** | `POST /api/Dungeon/create-boss-session` | 솔로 보스 던전 세션 생성 (Redis Pub/Sub 데디서버 연동, 5초 타임아웃)                 |
+|             | `POST /api/Dungeon/enter`               | 서버 풀에서 유휴 데디서버 할당 후 파티/솔로 입장 처리                                |
+|             | `POST /api/Dungeon/result`              | 보스전 결과 처리 — 클리어 유저 랭킹 등록, 세션·파티 데이터 정리 (데디서버 호출)      |
+| **Server**  | `POST /api/Server/register`             | 데디케이티드 서버 시작 시 호출 — 유휴 풀(`server:pool:idle`)에 등록                  |
+|             | `POST /api/Server/idle`                 | 세션 종료 후 데디서버 유휴 복귀 — busy → idle 이동                                   |
+| **Ranking** | `GET /api/Ranking/boss`                 | 보스 던전 클리어 타임 랭킹 조회, `?top=N` 파라미터 지원 (Redis Sorted Set)           |
+| **Upgrade** | `POST /api/Upgrade/attempt`             | 장비 강화 시도 (서버 측 확률 검증)                                                   |
 
 <br>
 
