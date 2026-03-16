@@ -31,11 +31,11 @@ namespace GameServer.Services
 
             while (!stoppringToken.IsCancellationRequested)
             {
+                List<string> userIds = new List<string>();
                 try
                 {
                     //Redis 큐에서 배치 만큼 꺼내기
                     //StackExchange.Redis는 pop을 한번 씩 -> 반복문 사용
-                    List<string> userIds = new List<string>();
 
                     for(int i=0; i < batchSize; i++)
                     {
@@ -59,11 +59,20 @@ namespace GameServer.Services
                         //큐가 비었을때만 1초 Delay
                         await Task.Delay(1000, stoppringToken);
                     }
-                  
+
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError($"워커 에러 발생 : {ex.Message}");
+
+                    // DB 저장 실패 시 꺼낸 userId들을 큐에 다시 넣어 재처리
+                    if (userIds.Count > 0)
+                    {
+                        _logger.LogWarning($"[Rollback] {userIds.Count}명의 userId를 task:writeback 큐에 복구합니다.");
+                        foreach (var uid in userIds)
+                            await db.ListLeftPushAsync("task:writeback", uid);
+                    }
+
                     await Task.Delay(1000, stoppringToken); //에러 후 1초뒤 재시작
                 }
             }
