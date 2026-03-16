@@ -236,5 +236,5 @@ namespace GameServer.Controllers
 
 public class LoadGameReq
 {
-    public int UserId { get; set; } // 로그인 성공했을 때 받은 그 ID
+    public int UserId { get; set; } 
 }

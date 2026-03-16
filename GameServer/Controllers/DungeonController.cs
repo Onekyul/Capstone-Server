@@ -18,21 +18,21 @@ namespace GameServer.Controllers
             _logger = logger;
         }
 
-        // 보스 던전 세션 생성 + 데디서버 준비 대기
+      
         [HttpPost("create-boss-session")]
         public async Task<IActionResult> CreateBossSession([FromBody] CreateBossSessionReq req)
         {
             var db = _redis.GetDatabase();
             var sub = _redis.GetSubscriber();
 
-            // 1. 고유 세션 이름 생성
+            // 세션 이름 생성
             string sessionName = "boss_" + Guid.NewGuid().ToString();
 
-            // 2. Redis에 세션 정보 저장 (TTL 30분)
+            // Redis에 정보 저장 (TTL 30분)
             var sessionData = JsonSerializer.Serialize(new { status = "preparing", userId = req.UserId });
             await db.StringSetAsync($"dungeon_session:{sessionName}", sessionData, TimeSpan.FromSeconds(1800));
 
-            // 3. 데디서버 준비 완료 대기를 위한 Pub/Sub 구독
+            // 데디서버 준비 완료 대기를 위한 Pub/Sub 구독
             var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             await sub.SubscribeAsync(RedisChannel.Literal("boss-dungeon:ready"), (channel, message) =>
@@ -43,12 +43,11 @@ namespace GameServer.Controllers
                 }
             });
 
-            // 4. 데디서버에 세션 생성 요청 발행
+            // 서버에 세션 생성 요청 발행
             await sub.PublishAsync(RedisChannel.Literal("boss-dungeon:create"), $"{sessionName}|4");
 
             _logger.LogInformation($"[Dungeon] 보스 세션 생성 요청: {sessionName}");
 
-            // 5. 최대 5초 대기
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             cts.Token.Register(() => tcs.TrySetCanceled());
 
@@ -77,14 +76,14 @@ namespace GameServer.Controllers
             }
         }
 
-        // 파티 보스던전 입장 — 유휴 서버 할당 후 세션 생성
+        // 파티 보스던전 입장
         [HttpPost("enter")]
         public async Task<IActionResult> Enter([FromBody] DungeonEnterReq req)
         {
             var db = _redis.GetDatabase();
             var sub = _redis.GetSubscriber();
 
-            // 1. 유휴 서버 하나 꺼내기 (SPOP — atomic)
+            // 유휴 서버 하나 꺼내기 
             var serverId = await db.SetPopAsync("server:pool:idle");
             if (serverId.IsNullOrEmpty)
             {
@@ -92,13 +91,13 @@ namespace GameServer.Controllers
                 return Ok(new DungeonEnterRes { Status = "full", Message = "서버가 혼잡합니다" });
             }
 
-            // 2. 세션명 생성
+            // 세션명 생성
             string sessionName = "boss-" + Guid.NewGuid().ToString("N")[..8];
 
-            // 3. busy 상태로 등록
+            // busy 상태로 등록
             await db.HashSetAsync("server:pool:busy", serverId.ToString(), sessionName);
 
-            // 4. 세션 정보 저장 (TTL 30분)
+            // 세션 정보 저장 (TTL 30분)
             var sessionData = JsonSerializer.Serialize(new
             {
                 serverId        = serverId.ToString(),
@@ -107,7 +106,7 @@ namespace GameServer.Controllers
             });
             await db.StringSetAsync($"dungeon_session:{sessionName}", sessionData, TimeSpan.FromMinutes(30));
 
-            // 5. 해당 서버 전용 채널로 세션 할당 알림
+            //  해당 서버 전용 채널로 세션 할당 알림
             var assignPayload = JsonSerializer.Serialize(new
             {
                 sessionName,
@@ -115,17 +114,32 @@ namespace GameServer.Controllers
             });
             await sub.PublishAsync(RedisChannel.Literal($"boss-dungeon:assign:{serverId}"), assignPayload);
 
+            // 파티 상태를 InGame으로 변경하고 SessionName 저장
+            if (req.PartyId > 0)
+            {
+                string partyKey = $"Party:{req.PartyId}";
+                if (await db.KeyExistsAsync(partyKey))
+                {
+                    await db.HashSetAsync(partyKey, new HashEntry[]
+                    {
+                        new HashEntry("Status", "InGame"),
+                        new HashEntry("SessionName", sessionName)
+                    });
+                    _logger.LogInformation($"[ServerPool] 파티 상태 InGame 변경: PartyId={req.PartyId}, Session={sessionName}");
+                }
+            }
+
             _logger.LogInformation($"[ServerPool] 던전 입장: {sessionName} → {serverId}");
             return Ok(new DungeonEnterRes { Status = "ok", SessionName = sessionName });
         }
 
-        // 보스전 결과 처리 (데디서버가 호출)
+        // 보스전 결과 처리 
         [HttpPost("result")]
         public async Task<IActionResult> DungeonResult([FromBody] DungeonResultReq req)
         {
             var db = _redis.GetDatabase();
 
-            // 1. 클리어한 유저들 랭킹 등록 (nickname은 Redis 캐시에서 조회)
+            // 1클리어한 유저들 랭킹 등록
             foreach (var result in req.Results)
             {
                 if (result.Cleared)
@@ -154,7 +168,7 @@ namespace GameServer.Controllers
                 }
             }
 
-            // 2. 세션 정보 삭제
+            // 세션 정보 삭제
             await db.KeyDeleteAsync($"dungeon_session:{req.SessionName}");
 
             _logger.LogInformation($"[Dungeon] 보스 세션 결과 처리 완료: {req.SessionName}");
