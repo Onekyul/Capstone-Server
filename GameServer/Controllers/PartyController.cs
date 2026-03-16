@@ -59,7 +59,7 @@ namespace GameServer.Controllers
             string membersKey = infoKey + ":Members";
             await db.SetAddAsync(membersKey, req.LeaderId);
 
-            // 방 목록(Set)에 등록
+            // 방 목록에 등록
             await db.SetAddAsync(KEY_LIST, newPartyId);
 
             return Ok(new { PartyId = newPartyId, Message = "파티 생성 완료", LeaderId = req.LeaderId });
@@ -130,7 +130,7 @@ namespace GameServer.Controllers
             var readySet = await db.SetMembersAsync(readyKey);
             var readyUserIds = readySet.Select(r => r.ToString()).ToHashSet();
 
-            // Member:{userId} 필드에서 MemberDto 리스트 추출
+          
             var members = dict
                 .Where(kv => kv.Key.StartsWith("Member:"))
                 .Select(kv => new MemberDto
@@ -161,7 +161,7 @@ namespace GameServer.Controllers
             var db = _redis.GetDatabase();
             string infoKey = KEY_INFO_PREFIX + req.PartyId;
 
-            // 파티 존재 여부 확인
+           
             if (!await db.KeyExistsAsync(infoKey))
                 return NotFound("존재하지 않는 파티입니다.");
 
@@ -310,7 +310,7 @@ namespace GameServer.Controllers
             if (storedLeaderId != req.UserId)
                 return BadRequest("방장만 게임을 시작할 수 있습니다.");
 
-            // 파티원이 있으면 전원 준비 완료 여부 검증
+            // 전원 준비 완료 여부 검증
             string membersKey = infoKey + ":Members";
             var allMembers = await db.SetMembersAsync(membersKey);
             if (allMembers.Length > 1)
@@ -325,17 +325,17 @@ namespace GameServer.Controllers
                     return BadRequest(new { Message = "모든 파티원이 준비를 완료해야 합니다." });
             }
 
-            // 파티 목록에서 제거 (더 이상 참가 불가)
+        
             await db.SetRemoveAsync(KEY_LIST, req.PartyId);
 
-            // 데디서버 세션 생성
+            // 서버 세션 생성
             string sessionName = "boss_" + Guid.NewGuid().ToString();
             int currentCount = (int)await db.HashGetAsync(infoKey, "CurrentCount");
 
             var sessionData = JsonSerializer.Serialize(new { status = "preparing", partyId = req.PartyId });
             await db.StringSetAsync($"dungeon_session:{sessionName}", sessionData, TimeSpan.FromSeconds(1800));
 
-            // 데디서버 준비 완료 대기
+            // 서버 준비 완료 대기
             var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             await sub.SubscribeAsync(RedisChannel.Literal("boss-dungeon:ready"), (channel, message) =>
@@ -360,7 +360,7 @@ namespace GameServer.Controllers
                 var readyData = JsonSerializer.Serialize(new { status = "ready", partyId = req.PartyId });
                 await db.StringSetAsync($"dungeon_session:{sessionName}", readyData, TimeSpan.FromSeconds(1800));
 
-                // 파티 상태를 InGame으로 변경 + 세션명 저장 (파티원이 폴링으로 확인)
+                // 파티 상태를 InGame으로 변경
                 await db.HashSetAsync(infoKey, new HashEntry[]
                 {
                     new HashEntry("Status", "InGame"),

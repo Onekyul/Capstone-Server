@@ -25,6 +25,7 @@ namespace GameServer.DTO
 
     public class DungeonEnterReq
     {
+        public int PartyId { get; set; }
         public int PartyLeaderUserId { get; set; }
         public List<int> MemberUserIds { get; set; }
     }
