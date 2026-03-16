@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. MySQL 
+  # 1. Database (MySQL)
   mysql:
     image: mysql:8.0
     container_name: Capstone_mysql
@@ -12,9 +12,25 @@ services:
       - "3306:3306" 
     command: --default-authentication-plugin=mysql_native_password
 
-  # 2. Redis 
+  # 2. In-Memory Data Store (Redis)
   redis:
     image: redis:alpine
     container_name: Capstone_redis
     ports:
-      - "6379:6379" 
+      - "6379:6379"
+
+  # 3. Backend API Server (ASP.NET Core)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Capstone_backend
+    ports:
+      - "7200:8080" # Host Port(7200) : Container Port(8080)
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      # 컨테이너 내부망 통신을 위한 환경변수 오버라이드 (appsettings.json 대체)
+      - ConnectionStrings__DefaultConnection=Server=mysql;Database=GameDB;Uid=root;Pwd=${DB_PASSWORD};
+      - Redis__ConnectionString=redis:6379
