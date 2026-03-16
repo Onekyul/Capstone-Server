@@ -110,7 +110,8 @@ namespace GameServer.Controllers
             var assignPayload = JsonSerializer.Serialize(new
             {
                 sessionName,
-                memberUserIds = req.MemberUserIds
+                memberUserIds = req.MemberUserIds,
+                partyId = req.PartyId
             });
             await sub.PublishAsync(RedisChannel.Literal($"boss-dungeon:assign:{serverId}"), assignPayload);
 
@@ -170,6 +171,17 @@ namespace GameServer.Controllers
 
             // 세션 정보 삭제
             await db.KeyDeleteAsync($"dungeon_session:{req.SessionName}");
+
+            // 파티 키 삭제 (partyId == 0이면 솔로 입장이므로 스킵)
+            if (req.PartyId > 0)
+            {
+                string partyKey = $"Party:{req.PartyId}";
+                await db.KeyDeleteAsync(partyKey);
+                await db.KeyDeleteAsync(partyKey + ":Members");
+                await db.KeyDeleteAsync(partyKey + ":Ready");
+                await db.SetRemoveAsync("Party:List", req.PartyId);
+                _logger.LogInformation($"[Dungeon] 파티 삭제: PartyId={req.PartyId}");
+            }
 
             _logger.LogInformation($"[Dungeon] 보스 세션 결과 처리 완료: {req.SessionName}");
             return Ok(new { success = true });

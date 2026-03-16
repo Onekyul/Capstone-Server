@@ -13,6 +13,7 @@ namespace GameServer.DTO
     public class DungeonResultReq
     {
         public string SessionName { get; set; }
+        public int PartyId { get; set; }
         public List<DungeonPlayerResult> Results { get; set; }
     }
 
