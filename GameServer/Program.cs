@@ -7,8 +7,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. MySQL 등록
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var serverVersion = ServerVersion.AutoDetect(connectionString); // 시작 시 한 번만 감지
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseMySql(connectionString, serverVersion));
 
 // 2. Redis 등록 
 var redisString = builder.Configuration.GetConnectionString("RedisConnection");

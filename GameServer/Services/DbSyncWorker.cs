@@ -86,7 +86,7 @@ namespace GameServer.Services
                     
                     // 유저 정보 조회
                     var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == int.Parse(userId));
-                    if (user == null) return; // 유저가 없으면 스킵
+                    if (user == null) continue; // 유저가 없으면 스킵
 
                     user.MaxClearedStage = clientData.stage;
                     if (clientData.equip != null)

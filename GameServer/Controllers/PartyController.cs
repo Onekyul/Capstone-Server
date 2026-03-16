@@ -62,7 +62,7 @@ namespace GameServer.Controllers
             // 방 목록(Set)에 등록
             await db.SetAddAsync(KEY_LIST, newPartyId);
 
-            return Ok(new { PartyId = newPartyId, Message = "파티 생성 완료" });
+            return Ok(new { PartyId = newPartyId, Message = "파티 생성 완료", LeaderId = req.LeaderId });
         }
 
         
@@ -125,23 +125,31 @@ namespace GameServer.Controllers
             var entries = await db.HashGetAllAsync(infoKey);
             var dict = entries.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
 
-            // Member:{userId} 필드에서 닉네임 리스트 추출
+            // Ready Set 조회
+            string readyKey = infoKey + ":Ready";
+            var readySet = await db.SetMembersAsync(readyKey);
+            var readyUserIds = readySet.Select(r => r.ToString()).ToHashSet();
+
+            // Member:{userId} 필드에서 MemberDto 리스트 추출
             var members = dict
                 .Where(kv => kv.Key.StartsWith("Member:"))
-                .Select(kv => kv.Value)
+                .Select(kv => new MemberDto
+                {
+                    UserId = int.Parse(kv.Key.Substring("Member:".Length)),
+                    Nickname = kv.Value,
+                    IsReady = readyUserIds.Contains(kv.Key.Substring("Member:".Length))
+                })
                 .ToList();
 
             var dto = new PartyDetailDto
             {
                 PartyId = int.Parse(dict["PartyId"]),
-                Title = dict.GetValueOrDefault("Title", "Unknown"),
-                DungeonId = int.Parse(dict.GetValueOrDefault("DungeonId", "0")),
-                CurrentCount = int.Parse(dict.GetValueOrDefault("CurrentCount", "0")),
-                MaxCount = int.Parse(dict.GetValueOrDefault("MaxCount", "4")),
                 LeaderId = int.Parse(dict.GetValueOrDefault("LeaderId", "0")),
+                DungeonId = int.Parse(dict.GetValueOrDefault("DungeonId", "0")),
+                MaxCount = int.Parse(dict.GetValueOrDefault("MaxCount", "4")),
+                Members = members,
                 Status = dict.GetValueOrDefault("Status", "Waiting"),
-                SessionName = dict.GetValueOrDefault("SessionName"),
-                Members = members
+                SessionName = dict.GetValueOrDefault("SessionName", "")
             };
 
             return Ok(dto);
@@ -177,7 +185,34 @@ namespace GameServer.Controllers
                 new HashEntry($"Member:{req.UserId}", req.Nickname)
             });
 
-            return Ok(new { PartyId = req.PartyId, Message = "파티 참가 완료", CurrentCount = currentCount + 1 });
+            int leaderId = (int)await db.HashGetAsync(infoKey, "LeaderId");
+            return Ok(new { PartyId = req.PartyId, Message = "파티 참가 완료", CurrentCount = currentCount + 1, LeaderId = leaderId });
+        }
+
+        [HttpPost("ready")]
+        public async Task<IActionResult> SetReady([FromBody] PartyReadyReq req)
+        {
+            var db = _redis.GetDatabase();
+            string infoKey = KEY_INFO_PREFIX + req.PartyId;
+
+            if (!await db.KeyExistsAsync(infoKey))
+                return NotFound("존재하지 않는 파티입니다.");
+
+            string membersKey = infoKey + ":Members";
+            if (!await db.SetContainsAsync(membersKey, req.UserId))
+                return BadRequest("파티에 참가하지 않은 유저입니다.");
+
+            string readyKey = infoKey + ":Ready";
+            if (req.IsReady)
+            {
+                await db.SetAddAsync(readyKey, req.UserId);
+                return Ok(new { Message = "준비 완료" });
+            }
+            else
+            {
+                await db.SetRemoveAsync(readyKey, req.UserId);
+                return Ok(new { Message = "준비 취소" });
+            }
         }
 
         [HttpPost("leave")]
@@ -197,6 +232,7 @@ namespace GameServer.Controllers
             {
                 string membersKey = infoKey + ":Members";
                 await db.KeyDeleteAsync(membersKey);
+                await db.KeyDeleteAsync(infoKey + ":Ready");
                 await db.KeyDeleteAsync(infoKey);
                 await db.SetRemoveAsync(KEY_LIST, req.PartyId);
                 return Ok(new { Message = "방장 탈퇴로 파티가 해산되었습니다." });
@@ -208,6 +244,7 @@ namespace GameServer.Controllers
                 return BadRequest("파티에 참가하지 않은 유저입니다.");
 
             await db.SetRemoveAsync(memberKey, req.UserId);
+            await db.SetRemoveAsync(infoKey + ":Ready", req.UserId);
             await db.HashDeleteAsync(infoKey, $"Member:{req.UserId}");
             long currentCount = await db.HashDecrementAsync(infoKey, "CurrentCount");
 
@@ -272,6 +309,21 @@ namespace GameServer.Controllers
             var storedLeaderId = await db.HashGetAsync(infoKey, "LeaderId");
             if (storedLeaderId != req.UserId)
                 return BadRequest("방장만 게임을 시작할 수 있습니다.");
+
+            // 파티원이 있으면 전원 준비 완료 여부 검증
+            string membersKey = infoKey + ":Members";
+            var allMembers = await db.SetMembersAsync(membersKey);
+            if (allMembers.Length > 1)
+            {
+                string readyKey = infoKey + ":Ready";
+                var readySet = await db.SetMembersAsync(readyKey);
+                var readyIds = readySet.Select(r => r.ToString()).ToHashSet();
+                var notReady = allMembers
+                    .Where(m => m.ToString() != req.UserId.ToString() && !readyIds.Contains(m.ToString()))
+                    .ToList();
+                if (notReady.Any())
+                    return BadRequest(new { Message = "모든 파티원이 준비를 완료해야 합니다." });
+            }
 
             // 파티 목록에서 제거 (더 이상 참가 불가)
             await db.SetRemoveAsync(KEY_LIST, req.PartyId);
