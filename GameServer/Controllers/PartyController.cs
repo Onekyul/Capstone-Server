@@ -97,6 +97,11 @@ namespace GameServer.Controllers
                 var dict = entries.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
 
             
+                // Waiting 상태인 파티만 목록에 포함
+                string status = dict.GetValueOrDefault("Status", "Waiting");
+                if (status != "Waiting")
+                    continue;
+
                 var dto = new PartyDto
                 {
                     PartyId = int.Parse(dict["PartyId"]),
