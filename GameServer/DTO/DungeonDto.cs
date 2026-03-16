@@ -22,4 +22,17 @@ namespace GameServer.DTO
         public bool Cleared { get; set; }
         public float ClearTime { get; set; }
     }
+
+    public class DungeonEnterReq
+    {
+        public int PartyLeaderUserId { get; set; }
+        public List<int> MemberUserIds { get; set; }
+    }
+
+    public class DungeonEnterRes
+    {
+        public string Status { get; set; }
+        public string? SessionName { get; set; }
+        public string? Message { get; set; }
+    }
 }

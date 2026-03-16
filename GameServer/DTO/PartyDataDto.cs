@@ -36,18 +36,32 @@
             public int UserId { get; set; }
         }
 
+        // 파티 멤버 정보
+        public class MemberDto
+        {
+            public int UserId { get; set; }
+            public string Nickname { get; set; }
+            public bool IsReady { get; set; }
+        }
+
         // 파티 상세 응답 (폴링용)
         public class PartyDetailDto
         {
             public int PartyId { get; set; }
-            public string Title { get; set; }
-            public int DungeonId { get; set; }
-            public int CurrentCount { get; set; }
-            public int MaxCount { get; set; }
             public int LeaderId { get; set; }
+            public int DungeonId { get; set; }
+            public int MaxCount { get; set; }
+            public List<MemberDto> Members { get; set; }
             public string Status { get; set; }       // "Waiting" | "InGame"
-            public string SessionName { get; set; }  // 데디서버 세션명 (입장 후 설정)
-            public List<string> Members { get; set; } // 멤버 닉네임 리스트
+            public string SessionName { get; set; }  // InGame일 때만 값 있음
+        }
+
+        // 준비 요청
+        public class PartyReadyReq
+        {
+            public int PartyId { get; set; }
+            public int UserId { get; set; }
+            public bool IsReady { get; set; }
         }
 
         // 던전 변경 요청
