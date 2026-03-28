@@ -8,28 +8,25 @@ namespace GameServer.Controllers
     [ApiController]
     public class UpgradeController : ControllerBase
     {
-       
+        private readonly ILogger<UpgradeController> _logger;
+
+        public UpgradeController(ILogger<UpgradeController> logger)
+        {
+            _logger = logger;
+        }
+
         [HttpPost("attempt")]
         public async Task<IActionResult> TryUpgrade([FromBody] UpgradeReqDto req)
         {
-          
-            Console.WriteLine($"[강화요청] 유저:{req.UserId}, 타겟:{req.TargetId}, 소모재료:[{req.MaterialInfo}], 성공확률:{req.SuccessRate * 100}%");
-
-          
             Random rand = new Random();
-            double roll = rand.NextDouble();
+            int roll = rand.Next(0, 100);
 
-       
-            bool isSuccess = roll <= req.SuccessRate;
+            bool isSuccess = roll < (int)(req.SuccessRate * 100);
 
-            if (isSuccess)
-            {
-                Console.WriteLine($"결과: [성공] (값: {roll:F2}");
-            }
-            else
-            {
-                Console.WriteLine($" 결과: [실패] (값: {roll:F2} ");
-            }
+            string result = isSuccess ? "성공" : "실패";
+            string timestamp = DateTime.Now.ToString("yy MM dd HH mm ss");
+
+            _logger.LogInformation($"[강화] '{req.Nickname}' | '{req.TargetId}' | 난수:'{roll}' | 확률:'{(int)(req.SuccessRate * 100)}'% | 결과:'{result}' | [{timestamp}]");
 
           
             var res = new UpgradeResDto
@@ -47,12 +44,9 @@ namespace GameServer.Controllers
     public class UpgradeReqDto
     {
         public int UserId { get; set; }
-
+        public string Nickname { get; set; }
         public string TargetId { get; set; }
-
-
         public string MaterialInfo { get; set; }
-
         public float SuccessRate { get; set; }
     }
 
