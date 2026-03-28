@@ -134,7 +134,21 @@ namespace GameServer.Controllers
             return Ok(new DungeonEnterRes { Status = "ok", SessionName = sessionName });
         }
 
-        // 보스전 결과 처리 
+        // 속성 던전 클리어 로그
+        [HttpPost("clear")]
+        public IActionResult Clear([FromBody] DungeonClearReq req)
+        {
+            var now = DateTime.Now;
+            string timestamp = now.ToString("yy MM dd HH mm ss");
+            string result = req.IsClear ? "클리어" : "죽음";
+            string rewards = string.Join(" + ", req.Rewards.Select(r => $"'{r.ItemName} x {r.Count}'"));
+
+            _logger.LogInformation($"[던전 클리어] '{req.Nickname}' | '{req.DungeonName}' | '{result}' | 획득 재료 : {rewards} | [{timestamp}]");
+
+            return Ok(new { success = true });
+        }
+
+        // 보스전 결과 처리
         [HttpPost("result")]
         public async Task<IActionResult> DungeonResult([FromBody] DungeonResultReq req)
         {

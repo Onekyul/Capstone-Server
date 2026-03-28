@@ -37,4 +37,18 @@ namespace GameServer.DTO
         public string? SessionName { get; set; }
         public string? Message { get; set; }
     }
+
+    public class DungeonClearReq
+    {
+        public string Nickname { get; set; }
+        public string DungeonName { get; set; }
+        public bool IsClear { get; set; }
+        public List<RewardItem> Rewards { get; set; }
+    }
+
+    public class RewardItem
+    {
+        public string ItemName { get; set; }
+        public int Count { get; set; }
+    }
 }
