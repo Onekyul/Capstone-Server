@@ -133,8 +133,17 @@ namespace GameServer.Controllers
                 string jsonString = JsonSerializer.Serialize(clientData);
                 await db.StringSetAsync(key, jsonString);
 
-                //작업 큐에 User ID 등록(LPUSH)
-                await db.ListLeftPushAsync("task:writeback", clientData.userId.ToString());
+                // [E2E 측정] 큐 push 시점을 EnqueuedAt에 기록하여
+                // DbSyncWorker가 pop 시 (DateTime.UtcNow - EnqueuedAt)으로
+                // E2E 지연(큐 push → DB commit)을 계산할 수 있도록 함.
+                // 본 논문 4장의 핵심 종속변수 측정 인프라.
+                var queueItem = new WriteBackQueueItem
+                {
+                    UserId = clientData.userId.ToString(),
+                    EnqueuedAt = DateTime.UtcNow
+                };
+                var queueJson = JsonSerializer.Serialize(queueItem);
+                await db.ListLeftPushAsync("task:writeback", queueJson);
 
                 return Ok(new { message = "서버 메모리에 저장됨(Async)" });
             }

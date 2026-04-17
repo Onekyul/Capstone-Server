@@ -1,0 +1,2 @@
+experiment_id,mode,vu,batch_size,repeat,timestamp,rps,http_req_p50,http_req_p90,http_req_p95,http_req_p99,save_latency_avg,save_latency_p95,e2e_latency_avg,e2e_latency_count,queue_backlog_last,batch_items_processed,error_count,error_rate,duration_seconds,k6_exit_code
+test-final,writeback,10,50,1,2026-04-17T07:21:28,10.233,0.51,1.59,1.76,N/A,1.36,2.00,0.0177,618,0,618,0,0,121,0
