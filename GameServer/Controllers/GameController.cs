@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Linq;
@@ -162,7 +163,9 @@ namespace GameServer.Controllers
         }
 
         
-        // [벤치마크용] MySQL 직접 저장 — Write-Back과 성능 비교를 위한 엔드포인트
+        // [벤치마크용] MySQL 직접 저장 — Write-Back과 성능 비교를 위한 엔드포인트.
+        // upsert 패턴(INSERT ... ON DUPLICATE KEY UPDATE)을 적용하여
+        // DbSyncWorker와 동일한 DB 처리 방식으로 공정한 비교가 가능하도록 함.
         [HttpPost("save-direct")]
         public async Task<IActionResult> SaveGameDirect([FromBody] GameDataDto clientData)
         {
@@ -170,60 +173,56 @@ namespace GameServer.Controllers
 
             try
             {
+                // child collection은 upsert로 처리하므로 Include 불필요
                 var user = await _context.Users
-                    .Include(u => u.Items)
-                    .Include(u => u.Equipments)
-                    .Include(u => u.Enchants)
                     .FirstOrDefaultAsync(u => u.Id == clientData.userId);
 
                 if (user == null) return BadRequest(new { error = "유저 없음", detail = $"userId={clientData.userId}가 DB에 존재하지 않습니다." });
 
+                // users 테이블: EF 변경 추적으로 처리
                 user.MaxClearedStage = clientData.stage;
                 if (clientData.equip != null)
                 {
                     user.EquippedWeaponId = clientData.equip.weapon;
                     user.EquippedHelmetId = clientData.equip.helmet;
-                    user.EquippedArmorId = clientData.equip.armor;
-                    user.EquippedBootsId = clientData.equip.boots;
+                    user.EquippedArmorId  = clientData.equip.armor;
+                    user.EquippedBootsId  = clientData.equip.boots;
                 }
 
-                var oldItems = _context.UserItems.Where(i => i.UserId == user.Id);
-                _context.UserItems.RemoveRange(oldItems);
-                foreach (var itemDto in clientData.inventory)
-                {
-                    _context.UserItems.Add(new UserItem
-                    {
-                        UserId = user.Id,
-                        ItemId = itemDto.id,
-                        Count = itemDto.count
-                    });
-                }
+                // upsert 행 수집
+                var inventoryRows = clientData.inventory
+                    .Select(i => new object[] { clientData.userId, i.id, i.count })
+                    .ToList();
+                var equipmentRows = clientData.equipments
+                    .Select(e => new object[] { clientData.userId, e.id, e.level })
+                    .ToList();
+                var enchantRows = clientData.enchants
+                    .Select(e => new object[] { clientData.userId, e.id, e.level })
+                    .ToList();
 
-                var oldEquips = _context.UserEquipments.Where(e => e.UserId == user.Id);
-                _context.UserEquipments.RemoveRange(oldEquips);
-                foreach (var equipDto in clientData.equipments)
-                {
-                    _context.UserEquipments.Add(new UserEquipment
-                    {
-                        UserId = user.Id,
-                        ItemId = equipDto.id,
-                        Level = equipDto.level
-                    });
-                }
+                using var tx = await _context.Database.BeginTransactionAsync();
 
-                var oldEnchants = _context.UserEnchants.Where(e => e.UserId == user.Id);
-                _context.UserEnchants.RemoveRange(oldEnchants);
-                foreach (var enchantDto in clientData.enchants)
-                {
-                    _context.UserEnchants.Add(new UserEnchant
-                    {
-                        UserId = user.Id,
-                        EnchantId = enchantDto.id,
-                        Level = enchantDto.level
-                    });
-                }
+                if (inventoryRows.Count > 0)
+                    await BulkUpsertAsync(_context,
+                        "INSERT INTO user_items (user_id, item_id, `count`) VALUES ",
+                        " ON DUPLICATE KEY UPDATE `count` = VALUES(`count`)",
+                        inventoryRows, 3);
+
+                if (equipmentRows.Count > 0)
+                    await BulkUpsertAsync(_context,
+                        "INSERT INTO user_equipments (user_id, item_id, level) VALUES ",
+                        " ON DUPLICATE KEY UPDATE level = VALUES(level)",
+                        equipmentRows, 3);
+
+                if (enchantRows.Count > 0)
+                    await BulkUpsertAsync(_context,
+                        "INSERT INTO user_enchants (user_id, enchant_id, level) VALUES ",
+                        " ON DUPLICATE KEY UPDATE level = VALUES(level)",
+                        enchantRows, 3);
 
                 await _context.SaveChangesAsync();
+                await tx.CommitAsync();
+
                 return Ok(new { message = "DB 직접 저장 완료" });
             }
             catch (DbUpdateConcurrencyException ex)
@@ -239,7 +238,36 @@ namespace GameServer.Controllers
                 return StatusCode(500, new { error = "서버 내부 오류", detail = ex.Message });
             }
         }
-       
+
+        // DbSyncWorker.BulkUpsertAsync와 동일한 로직.
+        // ExecuteSqlRawAsync의 {N} 바인딩으로 SQL Injection 방지.
+        private static async Task BulkUpsertAsync(
+            AppDbContext context,
+            string insertPrefix,
+            string onDuplicateClause,
+            List<object[]> rows,
+            int columnsPerRow)
+        {
+            var sb = new StringBuilder(insertPrefix);
+            var allParams = new List<object>();
+            int paramIndex = 0;
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append('(');
+                for (int j = 0; j < columnsPerRow; j++)
+                {
+                    if (j > 0) sb.Append(", ");
+                    sb.Append('{').Append(paramIndex++).Append('}');
+                    allParams.Add(rows[i][j]);
+                }
+                sb.Append(')');
+            }
+            sb.Append(onDuplicateClause);
+
+            await context.Database.ExecuteSqlRawAsync(sb.ToString(), allParams);
+        }
     }
 }
 
