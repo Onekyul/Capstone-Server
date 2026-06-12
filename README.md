@@ -14,6 +14,10 @@
 - **Dungeon (레이드):** `Photon Dedicated Server` - 중요 전투 로직의 서버 권한(Server Authority) 검증
 - **Backend API:** `ASP.NET Core` + `MySQL/Redis` - 재화, 아이템, 계정 등 영구 데이터 검증 및 저장
 
+ ## Architecture Diagram
+
+<img width="931" height="519" alt="Untitled-2026-06-11-1558" src="https://github.com/user-attachments/assets/cbce8c54-f4e0-4ac8-90e6-b0c3afc8d4c6" />
+
 <br>
 
 ## Key Engineering Highlights (핵심 설계 특징)
@@ -105,6 +109,3 @@ docker-compose up -d --build
 
 <br>
 
-## Architecture Diagram
-
-<img width="800" alt="System Architecture Diagram" src="https://github.com/user-attachments/assets/e4685ae9-bc7a-4073-9453-29062c479bee" />
